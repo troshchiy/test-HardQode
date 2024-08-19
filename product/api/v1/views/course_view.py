@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from api.v1.permissions import IsStudentOrIsAdmin, ReadOnlyOrIsAdmin
 from api.v1.serializers.course_serializer import (CourseSerializer,
                                                   CreateCourseSerializer,
+                                                  AvailableCoursesSerializer,
                                                   CreateGroupSerializer,
                                                   CreateLessonSerializer,
                                                   GroupSerializer,
@@ -53,6 +54,19 @@ class GroupViewSet(viewsets.ModelViewSet):
         return course.groups.all()
 
 
+class AvailableCoursesViewSet(viewsets.ModelViewSet):
+    """Курсы, доступные для покупки."""
+
+    serializer_class = AvailableCoursesSerializer
+    permission_classes = (permissions.IsAuthenticated,)
+
+    def get_queryset(self):
+        # Список курсов, купленных пользователем
+        bought_courses = Subscription.objects.filter(student=self.request.user).values_list('course')
+        # Курсы, доступные к покупке = они еще не куплены пользователем и у них есть флаг доступности
+        return Course.objects.exclude(id__in=bought_courses).filter(is_available=True)
+
+
 class CourseViewSet(viewsets.ModelViewSet):
     """Курсы """
 
@@ -74,7 +88,9 @@ class CourseViewSet(viewsets.ModelViewSet):
 
         # TODO
 
-        return Response(
-            data=data,
-            status=status.HTTP_201_CREATED
-        )
+        return Response({'enrolled': True})
+
+        # return Response(
+        #     data=data,
+        #     status=status.HTTP_201_CREATED
+        # )

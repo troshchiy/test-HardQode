@@ -17,11 +17,9 @@ class Course(models.Model):
         auto_now_add=False,
         verbose_name='Дата и время начала курса'
     )
-
     price = models.PositiveIntegerField(
         verbose_name='Стоимость'
     )
-
     is_available = models.BooleanField(
         default=True,
         verbose_name='Доступен'
@@ -47,7 +45,6 @@ class Lesson(models.Model):
         max_length=250,
         verbose_name='Ссылка',
     )
-
     course = models.ForeignKey(
         Course,
         on_delete=models.CASCADE,

@@ -76,6 +76,27 @@ class MiniLessonSerializer(serializers.ModelSerializer):
         )
 
 
+class AvailableCoursesSerializer(serializers.ModelSerializer):
+    """Список курсов, доступных для покупки."""
+
+    lessons_count = serializers.SerializerMethodField(read_only=True)
+
+    def get_lessons_count(self, obj):
+        """Количество уроков в курсе."""
+        return obj.lessons.count()
+
+    class Meta:
+        model = Course
+        fields = (
+            'id',
+            'author',
+            'title',
+            'start_date',
+            'price',
+            'lessons_count',
+        )
+
+
 class CourseSerializer(serializers.ModelSerializer):
     """Список курсов."""
 
@@ -84,10 +105,6 @@ class CourseSerializer(serializers.ModelSerializer):
     students_count = serializers.SerializerMethodField(read_only=True)
     groups_filled_percent = serializers.SerializerMethodField(read_only=True)
     demand_course_percent = serializers.SerializerMethodField(read_only=True)
-
-    def get_lessons_count(self, obj):
-        """Количество уроков в курсе."""
-        # TODO Доп. задание
 
     def get_students_count(self, obj):
         """Общее количество студентов на курсе."""
