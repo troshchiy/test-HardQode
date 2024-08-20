@@ -1,10 +1,8 @@
 from django.shortcuts import get_object_or_404
-from rest_framework import status, viewsets, permissions
+from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
-from rest_framework.response import Response
-from sqlparse.engine.grouping import group
 
-from api.v1.permissions import IsStudentOrIsAdmin, ReadOnlyOrIsAdmin
+from api.v1.permissions import IsStudentOrIsAdmin, ReadOnlyOrIsAdmin, make_payment
 from api.v1.serializers.course_serializer import (CourseSerializer,
                                                   CreateCourseSerializer,
                                                   AvailableCoursesSerializer,
@@ -12,9 +10,8 @@ from api.v1.serializers.course_serializer import (CourseSerializer,
                                                   CreateLessonSerializer,
                                                   GroupSerializer,
                                                   LessonSerializer)
-from api.v1.serializers.user_serializer import SubscriptionSerializer
 from courses.models import Course, Group
-from users.models import Subscription, Balance
+from users.models import Subscription
 
 
 class LessonViewSet(viewsets.ModelViewSet):
@@ -39,8 +36,7 @@ class LessonViewSet(viewsets.ModelViewSet):
 class GroupViewSet(viewsets.ModelViewSet):
     """Группы."""
 
-    #permission_classes = (permissions.IsAdminUser,)
-    permission_classes = (ReadOnlyOrIsAdmin,)
+    permission_classes = (permissions.IsAdminUser,)
 
     def get_serializer_class(self):
         if self.action in ['list', 'retrieve']:
@@ -84,38 +80,8 @@ class AvailableCoursesViewSet(viewsets.ModelViewSet):
     )
     def pay(self, request, pk):
         """Покупка доступа к курсу (подписка на курс)."""
-
-        course = Course.objects.get(pk=pk)
-        course_groups = Group.objects.filter(course=course)
-        user_balance = Balance.objects.get(user=request.user)
-        # Курс еще не куплен и у него есть флаг доступности
-        if not Subscription.objects.filter(student=request.user, course=pk) and course.is_available:
-            # Проверка, есть ли свободные места в потоке этого курса
-            if course_groups.count() == 10 and not [group for group in course_groups if group.students_amount < 30]:
-                return Response(
-                    data={'detail': 'There are no vacancies in the course groups'},
-                    status=status.HTTP_409_CONFLICT
-                )
-
-            if user_balance.bonuses >= course.price:
-                user_balance.bonuses=user_balance.bonuses - course.price
-                user_balance.save()
-                subscription = Subscription(student=request.user, course=course)
-                subscription.save()
-                return Response(
-                    data={'detail': 'Subscription created successfully'},
-                    status=status.HTTP_201_CREATED
-                )
-            else:
-                return Response(
-                    data={'detail': 'There are not enough bonuses on the balance'},
-                    status=status.HTTP_402_PAYMENT_REQUIRED
-                )
-        else:
-            return Response(
-                data={'detail': 'The course is already bought'},
-                status=status.HTTP_409_CONFLICT
-            )
+        response = make_payment(request.user, pk)
+        return response
 
 
 class CourseViewSet(viewsets.ModelViewSet):
