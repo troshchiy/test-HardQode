@@ -64,7 +64,7 @@ class Lesson(models.Model):
 class Group(models.Model):
     """Модель группы."""
 
-    name = models.CharField(
+    title = models.CharField(
         max_length=250,
         verbose_name='Название'
     )

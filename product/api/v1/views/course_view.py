@@ -39,7 +39,8 @@ class LessonViewSet(viewsets.ModelViewSet):
 class GroupViewSet(viewsets.ModelViewSet):
     """Группы."""
 
-    permission_classes = (permissions.IsAdminUser,)
+    #permission_classes = (permissions.IsAdminUser,)
+    permission_classes = (ReadOnlyOrIsAdmin,)
 
     def get_serializer_class(self):
         if self.action in ['list', 'retrieve']:
