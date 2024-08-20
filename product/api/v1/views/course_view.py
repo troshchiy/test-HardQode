@@ -13,7 +13,7 @@ from api.v1.serializers.course_serializer import (CourseSerializer,
                                                   LessonSerializer)
 from api.v1.serializers.user_serializer import SubscriptionSerializer
 from courses.models import Course
-from users.models import Subscription
+from users.models import Subscription, Balance
 
 
 class LessonViewSet(viewsets.ModelViewSet):
@@ -66,6 +66,38 @@ class AvailableCoursesViewSet(viewsets.ModelViewSet):
         # Курсы, доступные к покупке = они еще не куплены пользователем и у них есть флаг доступности
         return Course.objects.exclude(id__in=bought_courses).filter(is_available=True)
 
+    @action(
+        methods=['post'],
+        detail=True,
+        permission_classes=(permissions.IsAuthenticated,)
+    )
+    def pay(self, request, pk):
+        """Покупка доступа к курсу (подписка на курс)."""
+
+        course = Course.objects.get(pk=pk)
+        user_balance = Balance.objects.get(user=request.user)
+        # Курс еще не куплен пользователем
+        if not Subscription.objects.filter(student=request.user, course=pk):
+            if user_balance.bonuses >= course.price:
+                user_balance.bonuses=user_balance.bonuses - course.price
+                user_balance.save()
+                subscription = Subscription(student=request.user, course=course)
+                subscription.save()
+                return Response(
+                    data={'detail': 'Subscription created successfully'},
+                    status=status.HTTP_201_CREATED
+                )
+            else:
+                return Response(
+                    data={'detail': 'There are not enough bonuses on the balance'},
+                    status=status.HTTP_402_PAYMENT_REQUIRED
+                )
+        else:
+            return Response(
+                data={'detail': 'The course is already bought'},
+                status=status.HTTP_409_CONFLICT
+            )
+
 
 class CourseViewSet(viewsets.ModelViewSet):
     """Курсы """
@@ -77,20 +109,3 @@ class CourseViewSet(viewsets.ModelViewSet):
         if self.action in ['list', 'retrieve']:
             return CourseSerializer
         return CreateCourseSerializer
-
-    @action(
-        methods=['post'],
-        detail=True,
-        permission_classes=(permissions.IsAuthenticated,)
-    )
-    def pay(self, request, pk):
-        """Покупка доступа к курсу (подписка на курс)."""
-
-        # TODO
-
-        return Response({'enrolled': True})
-
-        # return Response(
-        #     data=data,
-        #     status=status.HTTP_201_CREATED
-        # )
