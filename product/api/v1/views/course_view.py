@@ -2,6 +2,7 @@ from django.shortcuts import get_object_or_404
 from rest_framework import status, viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from sqlparse.engine.grouping import group
 
 from api.v1.permissions import IsStudentOrIsAdmin, ReadOnlyOrIsAdmin
 from api.v1.serializers.course_serializer import (CourseSerializer,
@@ -12,7 +13,7 @@ from api.v1.serializers.course_serializer import (CourseSerializer,
                                                   GroupSerializer,
                                                   LessonSerializer)
 from api.v1.serializers.user_serializer import SubscriptionSerializer
-from courses.models import Course
+from courses.models import Course, Group
 from users.models import Subscription, Balance
 
 
@@ -64,7 +65,16 @@ class AvailableCoursesViewSet(viewsets.ModelViewSet):
         # Список курсов, купленных пользователем
         bought_courses = Subscription.objects.filter(student=self.request.user).values_list('course')
         # Курсы, доступные к покупке = они еще не куплены пользователем и у них есть флаг доступности
-        return Course.objects.exclude(id__in=bought_courses).filter(is_available=True)
+        available_courses = Course.objects.exclude(id__in=bought_courses).filter(is_available=True)
+
+        for course in available_courses.all():
+            course_groups = Group.objects.filter(course=course)
+            # Исключаем курсы, в которых не осталось свободных мест
+            # т.е. в каждой из 10 групп курсы заполнены все 30 мест
+            if course_groups.count() == 10 and not [group for group in course_groups if group.students_amount < 30]:
+                available_courses = available_courses.exclude(pk=course.pk)
+
+        return available_courses
 
     @action(
         methods=['post'],
@@ -75,6 +85,7 @@ class AvailableCoursesViewSet(viewsets.ModelViewSet):
         """Покупка доступа к курсу (подписка на курс)."""
 
         course = Course.objects.get(pk=pk)
+
         user_balance = Balance.objects.get(user=request.user)
         # Курс еще не куплен пользователем
         if not Subscription.objects.filter(student=request.user, course=pk):

@@ -75,6 +75,9 @@ class Group(models.Model):
         verbose_name='Курс'
     )
 
+    @property
+    def students_amount(self):
+        return self.users.count()
 
     class Meta:
         verbose_name = 'Группа'
