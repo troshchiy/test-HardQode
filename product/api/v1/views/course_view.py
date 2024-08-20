@@ -85,10 +85,17 @@ class AvailableCoursesViewSet(viewsets.ModelViewSet):
         """Покупка доступа к курсу (подписка на курс)."""
 
         course = Course.objects.get(pk=pk)
-
+        course_groups = Group.objects.filter(course=course)
         user_balance = Balance.objects.get(user=request.user)
-        # Курс еще не куплен пользователем
-        if not Subscription.objects.filter(student=request.user, course=pk):
+        # Курс еще не куплен и у него есть флаг доступности
+        if not Subscription.objects.filter(student=request.user, course=pk) and course.is_available:
+            # Проверка, есть ли свободные места в потоке этого курса
+            if course_groups.count() == 10 and not [group for group in course_groups if group.students_amount < 30]:
+                return Response(
+                    data={'detail': 'There are no vacancies in the course groups'},
+                    status=status.HTTP_409_CONFLICT
+                )
+
             if user_balance.bonuses >= course.price:
                 user_balance.bonuses=user_balance.bonuses - course.price
                 user_balance.save()
